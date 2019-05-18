@@ -42,7 +42,7 @@ LRESULT CALLBACK MouseHookProc(
           // If we teleport and click we interpret this as a
           // touch event; any mouseup (i.e., finger release)
           // will teleport the cursor back
-        ::SetConsoleTitleW(L"Mouse Chaperone ☟");
+        ::SetConsoleTitleA("Mouse Chaperone *");
         teleport_ignore_ticks = std::numeric_limits<int>::max();
         break;
 
