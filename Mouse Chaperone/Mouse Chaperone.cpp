@@ -40,7 +40,8 @@ LRESULT CALLBACK MouseHookProc(
           // touch event; now any mouseup will telport the
           // cursor back and we forget about the ignore
         if (teleported) {
-           teleport_ignore_ticks = std::numeric_limits<int>::max();
+            ::SetConsoleTitleW(L"Mouse Chaperone ☟");
+            teleport_ignore_ticks = std::numeric_limits<int>::max();
         }
         break;
 
@@ -88,6 +89,7 @@ LRESULT CALLBACK MouseHookProc(
       // build in a little delay; this is needed as the Windows
       // task bar expects a little more time
     if (restore) {
+        ::SetConsoleTitleA("Mouse Chaperone");
         std::unique_lock<std::mutex> lk(Teleport_Mx);
         Teleport_Pos = Last_Pos;
         lk.unlock();
