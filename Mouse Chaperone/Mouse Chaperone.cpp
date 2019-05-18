@@ -26,7 +26,7 @@ LRESULT CALLBACK MouseHookProc(
     POINT p;
 
     static bool teleported = false;
-    bool restore = false;
+    bool perform_restore = false;
     static const int range = 100;
     static int teleport_ignore_ticks = 5;
     
@@ -36,13 +36,14 @@ LRESULT CALLBACK MouseHookProc(
       case WM_LBUTTONDOWN:
         ::GetCursorPos(&p);
 
+        if (!teleported)
+          break;
+
           // If we teleport and click we interpret this as a
-          // touch event; now any mouseup will telport the
-          // cursor back and we forget about the ignore
-        if (teleported) {
-            ::SetConsoleTitleW(L"Mouse Chaperone ☟");
-            teleport_ignore_ticks = std::numeric_limits<int>::max();
-        }
+          // touch event; any mouseup (i.e., finger release)
+          // will teleport the cursor back
+        ::SetConsoleTitleW(L"Mouse Chaperone ☟");
+        teleport_ignore_ticks = std::numeric_limits<int>::max();
         break;
 
       case WM_MOUSEMOVE:
@@ -79,16 +80,14 @@ LRESULT CALLBACK MouseHookProc(
         break;
 
       case WM_LBUTTONUP:
-          // Finger release is a left mouse button up; when it is fired
-          // and we remember this was a teleport we can begin the restoration
-        restore = teleported;
+        perform_restore = teleported;
         break;
     };
 
       // If we restore we notify the main thread which can
-      // build in a little delay; this is needed as the Windows
-      // task bar expects a little more time
-    if (restore) {
+      // build in a little delay; this is needed as the
+      // mouse up event has not yet reached all applications
+    if (perform_restore) {
         ::SetConsoleTitleA("Mouse Chaperone");
         std::unique_lock<std::mutex> lk(Teleport_Mx);
         Teleport_Pos = Last_Pos;
@@ -99,7 +98,7 @@ LRESULT CALLBACK MouseHookProc(
     }
 
       // Let other hooks be handled
-    return CallNextHookEx(Mouse_Hook, nCode, wParam, lParam);
+    return ::CallNextHookEx(Mouse_Hook, nCode, wParam, lParam);
 }
 
 int main(
@@ -112,20 +111,19 @@ int main(
     Teleport_Pos.y = 0;
 
       // The proc thread blocks the entire windows mouse handling;
-      // we run it as a separate thread to be as transparent as possible
+      // we run it as a separate thread so as to not block input
     std::thread proc([&]{
         ::GetCursorPos(&Last_Pos);
 
-        Mouse_Hook = SetWindowsHookEx(WH_MOUSE_LL, MouseHookProc, 0, 0);
+        Mouse_Hook = ::SetWindowsHookEx(WH_MOUSE_LL, MouseHookProc, 0, 0);
 
         MSG msg;
-        while (GetMessage(&msg, 0, 0, 0))
-        {
-            TranslateMessage(&msg);
-            DispatchMessage(&msg);
+        while (::GetMessage(&msg, 0, 0, 0)) {
+            ::TranslateMessage(&msg);
+            ::DispatchMessage(&msg);
         }
 
-        UnhookWindowsHookEx(Mouse_Hook);
+        ::UnhookWindowsHookEx(Mouse_Hook);
     });
 
     while (true) {
